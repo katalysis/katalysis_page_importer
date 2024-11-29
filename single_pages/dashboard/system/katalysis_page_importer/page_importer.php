@@ -133,6 +133,12 @@ if ($controller->getAction() == 'review_import') {
                                                     <li><strong>URL Slug</strong></li>
                                                 </ul>
                                             </li>
+                                            <li>Optionally you may also include:
+                                                <ul>
+                                                    <li><strong>Meta Title</strong></li>
+                                                    <li><strong>Meta Description</strong></li>
+                                                </ul>
+                                            </li>
                                             <li>Column headers must be unique</li>
                                             <li>Column headers must not contain special characters except as specified below</li>
                                             <li>Avoid leaving empty columns without Headers in the csv file</li>
