@@ -184,6 +184,14 @@ class PageImporter extends DashboardPageController
                 $newPageID = $newPage->getCollectionID();
                 $newPageVersion = \Page::getByID($newPageID, $version = 'ACTIVE');
 
+                foreach ($row as $rowKey => $value):
+                    if ($rowKey == 'Meta Title') {
+                        $newPageVersion->setAttribute('meta_title', $value);
+                    } else if ($rowKey == 'Meta Description') {
+                        $newPageVersion->setAttribute('meta_description', $value);
+                    }
+                endforeach;
+
                 $oldblocks = $newPageVersion->getBlocks();
 
                 foreach ($oldblocks as $oldblock) {
@@ -199,15 +207,19 @@ class PageImporter extends DashboardPageController
                         $newValue = $value;
                         // Preprocess list content
                         if (str_starts_with($rowKey, '-[') && str_ends_with($rowKey, ']')) {
-                            $words = explode(',', $value);
-                            if (!empty($words)) {
-                                $list = '<ul>';
-                                foreach ($words as $word) {
-                                    $list .= '<li>' . htmlspecialchars($word) . '</li>';
+                            if (empty($value)) {
+                                $words = explode(',', $value);
+                                if (!empty($words)) {
+                                    $list = '<ul>';
+                                    foreach ($words as $word) {
+                                        $list .= '<li>' . htmlspecialchars($word) . '</li>';
+                                    }
+                                    $list .= '</ul>';
                                 }
-                                $list .= '</ul>';
-                            }
-                            $newValue = $list;
+                                $newValue = $list;
+                             }  else {
+                                $newValue = '';
+                             }                          
                         }
                         // Remove leading hyphen from key for list placeholders
                         $placeholder = strval('[' . str_replace('-[', '[', $rowKey ) . ']');
