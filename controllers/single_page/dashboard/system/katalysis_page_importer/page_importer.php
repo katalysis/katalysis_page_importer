@@ -98,7 +98,7 @@ class PageImporter extends DashboardPageController
 
     public function review_import($pageTypeID, $pageTemplateID, $parentPageID, $fID)
     {
-        
+
         $this->set('pageTitle', t('Review Import'));
 
         $this->view();
@@ -184,50 +184,65 @@ class PageImporter extends DashboardPageController
                 $newPageID = $newPage->getCollectionID();
                 $newPageVersion = \Page::getByID($newPageID, $version = 'ACTIVE');
 
+                foreach ($row as $rowKey => $value):
+                    if ($rowKey == 'Meta Title') {
+                        $newPageVersion->setAttribute('meta_title', $value);
+                    } else if ($rowKey == 'Meta Description') {
+                        $newPageVersion->setAttribute('meta_description', $value);
+                    }
+                endforeach;
+
                 $oldblocks = $newPageVersion->getBlocks();
 
                 foreach ($oldblocks as $oldblock) {
-                    //  Duplicate blocks and delete original to break link to defaults
-                    $newblock = $oldblock->duplicate($newPageVersion);
-                    $count = 0;
-                    $occurenceCount = 0;
-                    $content = $newblock->getInstance()->getContent();
+                    if ($oldblock->getBlockTypeHandle() == 'content') {
+                        //  Duplicate blocks and delete original to break link to defaults
+                        $newblock = $oldblock->duplicate($newPageVersion);
+                        $count = 0;
+                        $occurenceCount = 0;
+                        $content = $newblock->getInstance()->getContent();
 
-                    \Log::addInfo('Block: ' . $newblock->getBlockID());
+                        \Log::addInfo('Block: ' . $newblock->getBlockID());
 
-                    foreach ($row as $rowKey => $value):
-                        $newValue = $value;
-                        // Preprocess list content
-                        if (str_starts_with($rowKey, '-[') && str_ends_with($rowKey, ']')) {
-                            $words = explode(',', $value);
-                            if (!empty($words)) {
-                                $list = '<ul>';
-                                foreach ($words as $word) {
-                                    $list .= '<li>' . htmlspecialchars($word) . '</li>';
+                        foreach ($row as $rowKey => $value):
+                            $newValue = $value;
+                            // Preprocess list content
+                            if (str_starts_with($rowKey, '-[') && str_ends_with($rowKey, ']')) {
+                                if (!empty($value)) {
+                                    $words = explode(',', $value);
+                                    if (!empty($words)) {
+                                        $list = '<ul>';
+                                        foreach ($words as $word) {
+                                            $list .= '<li>' . htmlspecialchars($word) . '</li>';
+                                        }
+                                        $list .= '</ul>';
+                                    }
+                                    $newValue = $list;
+                                } else {
+                                    $newValue = '';
                                 }
-                                $list .= '</ul>';
                             }
-                            $newValue = $list;
+                            // Remove leading hyphen from key for list placeholders
+                            $placeholder = strval('[' . str_replace('-[', '[', $rowKey) . ']');
+                            // Count occurences of placeholder in content and change if present
+                            $occurenceCount = substr_count($content, needle: $placeholder);
+                            $count = $count + $occurenceCount;
+                            if ($occurenceCount > 0) {
+                                $content = str_replace($placeholder, $newValue, $content);
+                                //Additional step to replace unnecessary p tags that may have wrapped empty list placeholders
+                                $content = str_replace('<p></p>', '', $content);
+                                $newblock->getInstance()->save(array('content' => $content));
+                            }
+                        endforeach;
+                        if ($count > 0) {
+                            $oldblock->delete();
+                        } else {
+                            $newblock->delete();
                         }
-                        // Remove leading hyphen from key for list placeholders
-                        $placeholder = strval('[' . str_replace('-[', '[', $rowKey ) . ']');
-                        // Count occurences of placeholder in content and change if present
-                        $occurenceCount = substr_count($content, $placeholder);
-                        $count = $count + $occurenceCount;
-                        if ($occurenceCount > 0){
-                            $content = str_replace($placeholder, $newValue, $content);
-                            $newblock->getInstance()->save(array('content' => $content));
-                        }
-                    endforeach;
-                    if ($count > 0) {
-                        $oldblock->delete();
-                   } else {
-                       $newblock->delete();
-                   }
+                    }
                 }
                 // End of row/page
             endforeach;
-
         }
 
         $this->set('error', $this->error);
